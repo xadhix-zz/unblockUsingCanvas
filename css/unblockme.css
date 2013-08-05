@@ -1,0 +1,68 @@
+/**
+ * Created with JetBrains WebStorm.
+ * User: I069162
+ * Date: 8/4/13
+ * Time: 10:23 AM
+ * To change this template use File | Settings | File Templates.
+ */
+
+#unblockmeimage {
+    background-color: #dddddd;
+}
+
+img {
+    display: block;
+    position: fixed;
+    right: 0px;
+    bottom: 0px;
+}
+
+#replica * {
+    padding: 0px;
+    margin: 0px;
+}
+
+#replica {
+    background-color: saddlebrown;
+    width: 325px;
+    height: 325px;
+}
+
+#replica div {
+    margin: 0px;
+    display: inline-block;
+}
+
+#replica .square {
+    width: 50px;
+    height: 50px;
+    background-color: orange;
+}
+
+#replica .square-red {
+    background-color: red;
+}
+
+#replica .square-brown {
+    background-color: saddlebrown;
+}
+
+#replica .line {
+    background-color: #cccccc;
+}
+
+#replica .line-dummy {
+    background-color: #000000;
+    width: 5px;
+    height: 5px;
+}
+
+#replica .line-vertical {
+    width: 5px;
+    height: 50px;
+}
+
+#replica .line-horizontal {
+    width: 50px;
+    height: 5px;
+}

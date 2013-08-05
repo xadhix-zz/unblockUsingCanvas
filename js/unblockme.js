@@ -1,0 +1,238 @@
+/**
+ * Created with JetBrains WebStorm.
+ * User: I069162
+ * Date: 8/4/13
+ * Time: 10:25 AM
+ * To change this template use File | Settings | File Templates.
+ */
+
+var UnblockMe = UnblockMe ? UnblockMe : {};
+
+UnblockMe.init = function init() {
+	UnblockMe.canvas = document.getElementById("unblockmeimage");
+	UnblockMe.context = UnblockMe.canvas.getContext("2d");
+	$("#unblockmeimage").click(function (e) {
+		var data = UnblockMe.context.getImageData(e.offsetX, e.offsetY, 1, 1).data;
+		console.log([data[0], data[1], data[2]]);
+	});
+};
+
+UnblockMe.Utils = {};
+
+UnblockMe.Utils.getRGBMinimum = function (color) {
+	r = g = b = 255;
+	var numPixels = color.length;
+	for (var idx = 0; idx < numPixels; idx = idx + 4) {
+		r = color[idx + 0] < r ? color[idx + 0] : r;//r
+		g = color[idx + 1] < g ? color[idx + 1] : g;//g
+		b = color[idx + 2] < b ? color[idx + 2] : b;//b
+	}
+
+	return {"r": r, "g": g, "b": b};
+};
+
+UnblockMe.Utils.getRGBMaximum = function (color) {
+	r = g = b = 0;
+	var numPixels = color.length;
+	for (var idx = 0; idx < numPixels; idx = idx + 4) {
+		r = color[idx + 0] > r ? color[idx + 0] : r;//r
+		g = color[idx + 1] > g ? color[idx + 1] : g;//g
+		b = color[idx + 2] > b ? color[idx + 2] : b;//b
+	}
+
+	return {"r": r, "g": g, "b": b};
+};
+
+UnblockMe.Utils.getRGBAverage = function (color) {
+	var numPixels = color.length;
+	r = g = b = 0;
+	for (var idx = 0; idx < numPixels; idx = idx + 4) {
+		r += color[idx + 0];//r
+		g += color[idx + 1];//g
+		b += color[idx + 2];//b
+	}
+
+	r = Math.ceil(4 * r / numPixels);
+	g = Math.ceil(4 * g / numPixels);
+	b = Math.ceil(4 * b / numPixels);
+
+	return {"r": r, "g": g, "b": b};
+};
+
+UnblockMe.Utils.rgbToGray = function rgbToGray(r, g, b) {
+	function sRGB_to_linear(x) {
+		if (x < 0.04045) return x / 12.92;
+		return Math.pow(((x + 0.055) / 1.055), 2.4);
+	}
+
+	r = sRGB_to_linear(r / 255);
+	g = sRGB_to_linear(g / 255);
+	b = sRGB_to_linear(b / 255);
+	return Math.round((0.299 * r + 0.587 * g + 0.014 * b) * 255);
+};
+
+UnblockMe.ProcessBlocks = function (blockSize, ALGORITHM, callback) {
+	ALGORITHM = ALGORITHM || "AVERAGE";
+	callback = callback || UnblockMe.Utils.getRGBAverage;
+
+	var numBlocksX = Math.ceil(UnblockMe.canvas.width / blockSize);
+	var numBlocksY = Math.ceil(UnblockMe.canvas.height / blockSize);
+	console.debug(numBlocksX + " " + numBlocksY);
+
+	UnblockMe.workers = [];
+
+	for (var idxX = 0; idxX < numBlocksX; idxX++) {
+		for (var idxY = 0; idxY < numBlocksY; idxY++) {
+			var color = UnblockMe.context.getImageData(blockSize * idxX, blockSize * idxY, blockSize, blockSize).data;
+			var rgb = {"r": 0, "g": 0, "b": 0};
+
+			switch (ALGORITHM) {
+				case "CUSTOM":
+					try {
+						rgb = callback(color);
+					}
+					catch (e) {
+						alert(e);
+						console.error(e);
+					}
+					finally {
+						if (!rgb || (!rgb.r && rgb.r != 0) || (!rgb.g && rgb.g != 0) || (!rgb.b && rgb.b != 0)) {
+							console.error("Your custom function '" + callback + "' failed. using AVERAGE instead.");
+							rgb = UnblockMe.Utils.getRGBAverage(color);
+						}
+					}
+					break;
+				case "MINIMUM":
+					rgb = UnblockMe.Utils.getRGBMinimum(color);
+					break;
+				case "MAXIMUM":
+					rgb = UnblockMe.Utils.getRGBMaximum(color);
+					break;
+				case "AVERAGE":
+					rgb = UnblockMe.Utils.getRGBAverage(color);
+					break;
+				default:
+					rgb = UnblockMe.Utils.getRGBAverage(color);
+			}
+
+			r = rgb.r;
+			g = rgb.g;
+			b = rgb.b;
+			UnblockMe.context.fillStyle = "rgb(" + rgb.r + "," + rgb.g + "," + rgb.b + ")";
+			UnblockMe.context.fillRect(blockSize * idxX, blockSize * idxY, blockSize, blockSize);
+		}
+	}
+	//window.open(UnblockMe.canvas.toDataURL());
+};
+
+function markRedSquares(blockSize) {
+
+	var numBlocksX = Math.ceil(UnblockMe.canvas.width / blockSize);
+	var numBlocksY = Math.ceil(UnblockMe.canvas.height / blockSize);
+	console.debug(numBlocksX + " " + numBlocksY);
+	for (var x = 0; x < numBlocksX; x++) {
+		for (var y = 0; y < numBlocksY; y++) {
+			var imageData = UnblockMe.context.getImageData(blockSize * y, blockSize * x, blockSize, blockSize);
+			console.log(x + " " + y + " " + [imageData.data[0], imageData.data[1], imageData.data[2]]);
+			if (imageData.data[1] < 50) {
+				var row = $($("tr.squares")[x]);
+				$($("td.square", row)[y]).addClass("square-red");
+			}
+			if (imageData.data[1] > 50 && imageData.data[1] < 85) {
+				var row = $($("tr.squares")[x]);
+				$($("td.square", row)[y]).addClass("square-brown");
+			}
+		}
+	}
+}
+
+function StartProcessing() {
+	var getMiddleColor = function (color) {
+		var middle = Math.round(color.length / 8);
+		var r = color[middle + 0];
+		var g = color[middle + 1];
+		var b = color[middle + 2];
+		return {"r": r, "g": g, "b": b};
+	};
+
+	var getGrayscaleColor = function (color) {
+		var r = color[0];
+		var g = color[1];
+		var b = color[2];
+
+		r = UnblockMe.Utils.rgbToGray(r, g, b);
+		g = b = r;
+
+		return {"r": r, "g": g, "b": b};
+	};
+
+	var greenify = function (color) {
+		rgb = UnblockMe.Utils.getRGBAverage(color);
+		rgb.r = 0;
+		rgb.b = 0;
+		return rgb;
+	};
+
+	var thresholdGreen = function (color) {
+		r = g = b = 255;
+		var numPixels = color.length;
+		for (var idx = 0; idx < numPixels; idx = idx + 4) {
+			r = 0;//r
+			b = 0;//b
+
+			g = color[idx + 1];//g
+
+			if (g == 73) {
+				r = g = b = 255;
+			}
+		}
+
+		return {"r": r, "g": g, "b": b};
+	};
+
+	alert("Starting 1");
+	UnblockMe.ProcessBlocks(100, "CUSTOM", greenify);
+	alert("Done.");
+
+	markRedSquares(100);
+
+	UnblockMe.loadImageOnCanvas("screenshot.png", null);
+
+	alert('Marked!');
+}
+
+UnblockMe.loadImageOnCanvas = function loadImageOnCanvas(imgname, callback) {
+	var image = new Image();
+	image.src = "./img/" + imgname;
+	image.onload = function () {
+		console.debug("Drawing '" + image.src + "' on canvas...");
+		var clipX = 25;
+		var clipY = 305;
+
+		/*
+		 img				Specifies the image, canvas, or video element to use
+		 sx		 Optional. 	The x coordinate where to start clipping
+		 sy		 Optional. 	The y coordinate where to start clipping
+		 swidth	 Optional. 	The width of the clipped image
+		 sheight Optional. 	The height of the clipped image
+		 x					The x coordinate where to place the image on the canvas
+		 y					The y coordinate where to place the image on the canvas
+		 width	 Optional. 	The width of the image to use (stretch or reduce the image)
+		 height	 Optional. 	The height of the image to use (stretch or reduce the image)
+		 */
+		UnblockMe.context.drawImage(image, clipX, clipY, image.width - clipX - 25, image.height - clipY - 256, 0, 0, 600, 600);
+		UnblockMe.imageLoaded = true;
+
+		$("#preProcessedImage").attr("src", UnblockMe.canvas.toDataURL());
+
+		if (callback) {
+			callback();
+		}
+	}
+};
+
+$(document).ready(function () {
+	console.debug("Starting...");
+	UnblockMe.init();
+	UnblockMe.loadImageOnCanvas("screenshot.png", StartProcessing);
+});
